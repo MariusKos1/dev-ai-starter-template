@@ -6,6 +6,7 @@ Starter template for the **Development of AI Applications** course final group p
 
 - Marius Koskinen (marius.koskinen@student.hamk.fi)
 - Pauliina Touruvirta (anna-pauliina.touruvirta@student.hamk.fi)
+- Aki Sartolahti (aki.sartolahti@student.hamk.fi)
 - Member 3 Name (email@example.com)
 
 ## Problem
