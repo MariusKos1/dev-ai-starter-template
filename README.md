@@ -1,4 +1,4 @@
-# Ai application
+# Visiting plan assistant for restaraunts and upcoming events for the city of Helsinki
 
 Starter template for the **Development of AI Applications** course final group project.
 
@@ -10,25 +10,32 @@ Starter template for the **Development of AI Applications** course final group p
 - Vibecky Leinonen (amk1005954@student.hamk.fi)
 
 ## Problem
+Tourists can feel overwhelmed by the amount of places to visit in helsinki. With limited time they most likely want the best experience and the idea of this app is that it recommends places based on user reviews and it can recommend upcoming events. 
 
 ### Intended users
-Who are the primary target users of this application?
+The intended users are tourists or even people that live in a another part of Finland and want to visit Helsinki.
 
 ### Problem statement
-What specific problem does this application solve for those users?
+There is a lot of available events, restaurants, landmarks. The idea is that the tourists can get a great visiting experience without using too much time thinking where to go next.
 
 ### Why AI is appropriate
 Why does this problem require AI / LLM capabilities rather than traditional deterministic software?
+
+Some deterministic software may be outdated due to places closing or it may recommend events that have already passed. This application use API's regarding places and upcoming events, so it should always give updated information. 
 
 ## Solution
 
 Briefly describe your application, its primary value proposition, and how it addresses the problem statement above.
 
+As stated above, the application will use API's that have information on places in helsinki and upcoming events. The value is that it will give tourist a plan on what to do instead of feeling overwhelmed or lost.
+
 ## Main user workflow
 
-1. **User Input:** The user submits a prompt or query via the Gradio user interface.
-2. **Processing & Guardrails:** The application service layer (`src/services/ai_service.py`) validates and formats the request.
-3. **Model Response:** The model client calls Ollama locally and returns the response back through the service layer to the UI.
+1. **User Input:** The user submits a prompt or query via the Streamlit user interface.
+2. **Processing:** The ai_service.py looks at the query and sends a quick prompt to qwen3:8b asking it to classify the intent into: restaurants, events, or both.
+3. **Data retrieval:** The service layer performs an HTTP GET requests. For restaurants it fetches from the Google Places/MyHelsinki API and ideally it filters out places with low user review scores for example minrating=4.5. For events it fetches upcoming events from the Linked Events API and ideally it filters to out everything that is below the current date and also everything that is more than 3 days away. The Python script should fetch a raw json payload from the Linked Events API and also only extract the information that the model needs.
+4. **Promt handling:** After processing the json's the application will turn it into a context block. Instructions will be added to the model so it behaves correctly. 
+5. **Model Response:** The model client calls Ollama locally and returns the response back through the service layer to the UI.
 
 ## Architecture
 
@@ -37,7 +44,7 @@ Below is the initial starter architecture. As your project evolves with addition
 ```text
 User
   ↓
-Gradio UI (app/ui.py)
+Streamlit UI (app/ui.py)
   ↓
 Application / AI Service (src/services/ai_service.py)
   ↓
@@ -50,15 +57,15 @@ Ollama (Local LLM Server)
 
 ## Model
 
-- **Model used:** e.g., `llama3.2` (or specified local Ollama model)
-- **Selection rationale:** Why was this specific model chosen for your project (e.g., lightweight, performance, context size)?
+- **Model used:** e.g., `qwen3:8b` (or specified local Ollama model)
+- **Selection rationale:** Why was this specific model chosen for your project (e.g., lightweight, performance, context size)? The model was chosen because it is lightweight so it can run easier than heavier models and it should perform well enough for the project.
 
 ## Additional AI capability
 
 Select at least one additional capability to implement for your final project:
 
-- [ ] RAG (Retrieval-Augmented Generation)
-- [ ] Tools / External API integration
+- [x] RAG (Retrieval-Augmented Generation)
+- [x] Tools / External API integration
 - [ ] Model Context Protocol (MCP)
 - [ ] Agentic workflow (Model-selected actions based on observations)
 - [ ] Memory / Persistent state
@@ -66,7 +73,8 @@ Select at least one additional capability to implement for your final project:
 - [ ] Other: ______________________
 
 ### Capability justification
-Explain why the selected capability is useful and necessary for your application's user problem.
+Pulling live and verified data directly from the MyHelsinki Open API and the Helsinki Linked Events API makes it so that the user can get up to date information about places and events. The RAG pipeline acts as a data filter that provides the local LLM with current information (For example only pulling restaurants with a minrating=4.5 that are verified as open_now). This turns the AI from a normal text generator into an application that works with up to date information.
+
 
 ## Setup
 
