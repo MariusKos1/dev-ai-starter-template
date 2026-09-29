@@ -32,7 +32,7 @@ As stated above, the application will use API's that have information on places 
 ## Main user workflow
 
 1. **User Input:** The user submits a prompt or query via the Streamlit user interface.
-2. **Processing:** The ai_service.py looks at the query and sends a quick prompt to qwen3:8b asking it to classify the intent into: restaurants, events, or both.
+2. **Processing:** The ai_service.py looks at the query and sends a quick prompt to qwen3:8b and asks it to classify the intent into: restaurants, events, or both.
 3. **Data retrieval:** The service layer performs an HTTP GET requests. For restaurants it fetches from the Google Places/MyHelsinki API and ideally it filters out places with low user review scores for example minrating=4.5. For events it fetches upcoming events from the Linked Events API and ideally it filters to out everything that is below the current date and also everything that is more than 3 days away. The Python script should fetch a raw json payload from the Linked Events API and also only extract the information that the model needs.
 4. **Promt handling:** After processing the json's the application will turn it into a context block. Instructions will be added to the model so it behaves correctly. 
 5. **Model Response:** The model client calls Ollama locally and returns the response back through the service layer to the UI.
