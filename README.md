@@ -16,7 +16,7 @@ Tourists can feel overwhelmed by the amount of places to visit in helsinki. With
 The intended users are tourists or even people that live in a another part of Finland and want to visit Helsinki.
 
 ### Problem statement
-There is a lot of available events, restaurants, landmarks. The idea is that the tourists can get a great visiting experience without using too much time thinking where to go next.
+There are a lot of available events, restaurants, landmarks. The idea is that the tourists can get a great visiting experience without using too much time thinking where to go next.
 
 ### Why AI is appropriate
 Why does this problem require AI / LLM capabilities rather than traditional deterministic software?
