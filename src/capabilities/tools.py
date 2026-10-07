@@ -24,3 +24,50 @@ Tools should be deterministic, safe, and scoped to the user problem.
 """
 
 # Implement custom tool functions and schema definitions below if selected.
+
+# Defines the tool schema for searching upcoming events in Helsinki.
+EVENT_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "get_upcoming_events",
+        "description": "Get upcoming events in Helsinki.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "days": {
+                    "type": "integer",
+                    "description": "Number of days ahead to search for events."
+                }
+            },
+            "required": ["days"]
+        }
+    }
+}
+
+def get_upcoming_events(days: int):
+    """
+    Returns example upcoming events in Helsinki.
+    """
+    events = [
+        {
+            "name": "Helsinki Tech Meetup",
+            "location": "Helsinki",
+            "days_from_now": 2,
+        },
+        {
+            "name": "AI Developer Workshop",
+            "location": "Helsinki",
+            "days_from_now": 5,
+        },
+        {
+            "name": "Startup Networking Evening",
+            "location": "Helsinki",
+            "days_from_now": 10,
+        },
+    ]
+
+    return [
+        event
+        for event in events
+        if event["days_from_now"] <= days
+    ]

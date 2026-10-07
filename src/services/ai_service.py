@@ -7,7 +7,19 @@ from src.models.model_client import (
 )
 from src.schemas.responses import UserRequest, AIResponse
 
+def build_messages(question: str, history=None):
+    # Builds the model context using recent conversation history and the current question.
+    history = history or []
 
+    selected_history = [
+        {"role": item["role"], "content": item["content"]}
+        for item in history[-4:]
+        if item.get("role") in {"user", "assistant"} and item.get("content")
+    ]
+
+    return selected_history + [
+        {"role": "user", "content": question}
+    ]
 class AIService:
     """
     Application service layer responsible for validating user input,
@@ -24,7 +36,7 @@ class AIService:
             self.model_client = OllamaModelClient()
         return self.model_client
 
-    def process_message(self, user_message: str) -> AIResponse:
+    def process_message(self, user_message: str, history=None) -> AIResponse:
         """
         Processes a raw user message string and returns a structured AIResponse.
         Catches technical failures and converts them to friendly user-facing messages.
@@ -41,9 +53,14 @@ class AIService:
             # 2. Schema validation
             request = UserRequest(message=user_message.strip())
 
-            # 3. Call model client
+            # 3. Build conversation context and call the model client
+            messages = build_messages(request.message, history)
+
             client = self._get_client()
-            response_text = client.generate(request.message)
+            response_text = client.generate(
+                request.message,
+                messages=messages
+            )
 
             return AIResponse(
                 content=response_text,
@@ -85,7 +102,7 @@ class AIService:
             )
 
 
-def generate_response(user_message: str, service: Optional[AIService] = None) -> str:
+def generate_response(user_message: str, service: Optional[AIService] = None, history=None) -> str:
     """
     Main reusable service entry point used by the UI layer.
     
@@ -93,5 +110,5 @@ def generate_response(user_message: str, service: Optional[AIService] = None) ->
     the generated text response (or a friendly error message).
     """
     active_service = service or AIService()
-    response = active_service.process_message(user_message)
+    response = active_service.process_message(user_message, history)
     return response.content

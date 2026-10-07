@@ -1,6 +1,20 @@
 import gradio as gr
 from src.services.ai_service import generate_response
 
+def chat_with_history(message, history):
+    history = history or []
+
+    response = generate_response(
+        message,
+        history=history
+    )
+
+    updated_history = history + [
+        {"role": "user", "content": message},
+        {"role": "assistant", "content": response},
+    ]
+
+    return response, updated_history
 
 def build_ui() -> gr.Blocks:
     """
@@ -10,6 +24,8 @@ def build_ui() -> gr.Blocks:
     in the AI service layer and never directly with Ollama or the model client.
     """
     with gr.Blocks(title="AI Application Starter") as demo:
+        history_state = gr.State([])
+
         gr.Markdown(
             """
             # AI Application Starter
@@ -37,14 +53,14 @@ def build_ui() -> gr.Blocks:
 
         # Connect UI actions exclusively to the service layer function
         submit_btn.click(
-            fn=generate_response,
-            inputs=user_input,
-            outputs=output_box,
+            fn=chat_with_history,
+            inputs=[user_input, history_state],
+            outputs=[output_box, history_state],
         )
         user_input.submit(
-            fn=generate_response,
-            inputs=user_input,
-            outputs=output_box,
+            fn=chat_with_history,
+            inputs=[user_input, history_state],
+            outputs=[output_box, history_state],
         )
 
     return demo

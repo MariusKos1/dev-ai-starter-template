@@ -1,7 +1,8 @@
-from typing import Optional
+from typing import Optional, List, Dict
+#from urllib import response
 import ollama
 from src.config import config
-
+from src.capabilities.tools import get_upcoming_events
 
 class ModelClientError(Exception):
     """Base exception for model client failures."""
@@ -26,18 +27,28 @@ class OllamaModelClient:
         self.model_name = model_name or config.model_name
         self._client = ollama.Client(host=self.base_url)
 
-    def generate(self, prompt: str) -> str:
+    def generate(self, prompt: str, messages: Optional[List[Dict[str, str]]] = None,tools=None) -> str:
         """
         Sends a user prompt to local Ollama model and returns generated response text.
         
         Raises ModelClientError subclass if connection or execution fails.
         """
         try:
+            # Sends conversation context and available tools to the model.
             response = self._client.chat(
                 model=self.model_name,
-                messages=[{"role": "user", "content": prompt}],
+                messages=messages or [{"role": "user", "content": prompt}],
+                tools=tools
             )
-            
+
+            # Execute tool calls requested by the model.
+            if hasattr(response, "message") and response.message.tool_calls:
+                 for tool_call in response.message.tool_calls:
+                    if tool_call.function.name == "get_upcoming_events":
+                        days = tool_call.function.arguments.get("days", 7)
+                        tool_result = get_upcoming_events(days)
+
+                        return str(tool_result)
             # Standardize extraction from dict or chat response object
             if isinstance(response, dict):
                 return response.get("message", {}).get("content", "")
