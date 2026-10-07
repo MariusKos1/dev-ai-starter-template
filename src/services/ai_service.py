@@ -6,6 +6,7 @@ from src.models.model_client import (
     ModelNotFoundError,
 )
 from src.schemas.responses import UserRequest, AIResponse
+from src.capabilities.tools import EVENT_TOOL
 
 def build_messages(question: str, history=None):
     # Builds the model context using recent conversation history and the current question.
@@ -59,7 +60,8 @@ class AIService:
             client = self._get_client()
             response_text = client.generate(
                 request.message,
-                messages=messages
+                messages=messages,
+                tools=[EVENT_TOOL]
             )
 
             return AIResponse(

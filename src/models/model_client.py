@@ -1,5 +1,4 @@
 from typing import Optional, List, Dict
-#from urllib import response
 import ollama
 from src.config import config
 from src.capabilities.tools import get_upcoming_events
@@ -27,7 +26,7 @@ class OllamaModelClient:
         self.model_name = model_name or config.model_name
         self._client = ollama.Client(host=self.base_url)
 
-    def generate(self, prompt: str, messages: Optional[List[Dict[str, str]]] = None,tools=None) -> str:
+    def generate(self, prompt: str, messages: Optional[List[Dict[str, str]]] = None, tools=None) -> str:
         """
         Sends a user prompt to local Ollama model and returns generated response text.
         
@@ -48,7 +47,30 @@ class OllamaModelClient:
                         days = tool_call.function.arguments.get("days", 7)
                         tool_result = get_upcoming_events(days)
 
-                        return str(tool_result)
+                        # Add the assistant tool request to the conversation.
+                        conversation = messages or [{"role": "user", "content": prompt}]
+                        conversation.append(response.message)
+
+                        # Add the tool result to the conversation.
+                        conversation.append({
+                            "role": "tool",
+                            "tool_name": tool_call.function.name,
+                            "content": str(tool_result),
+                        })
+
+                        # Send the tool result back to the model for the final answer.
+                        final_response = self._client.chat(
+                            model=self.model_name,
+                            messages=conversation
+                        )
+
+                        if isinstance(final_response, dict):
+                            return final_response.get("message", {}).get("content", "")
+                        elif hasattr(final_response, "message"):
+                            return final_response.message.content
+
+                        return str(final_response)
+                    
             # Standardize extraction from dict or chat response object
             if isinstance(response, dict):
                 return response.get("message", {}).get("content", "")
