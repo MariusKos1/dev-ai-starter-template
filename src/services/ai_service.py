@@ -2,6 +2,7 @@ from email.mime import message
 from typing import Optional
 from xmlrpc import client
 
+from matplotlib.style import context
 from prompt_toolkit import prompt
 
 from prompt_toolkit import prompt
@@ -46,27 +47,36 @@ class AIService:
             Query: {message}
         """
             client = self._get_client()
+            
             intent = client.generate(prompt).strip().lower()
+
+            #if intent not in ["restaurants", "events", "both"\]:
+                #intent = "both" #Pauliina: note to myself, onko turha lisäys? 
             return intent
-    from src.data.restaurants import fetch_restaurants
-from src.data.events import fetch_events
+    
+    def build_context(self, intent: str) -> str: #PAULIINA LISÄYS
+        context = ""
 
-def build_context(self, intent: str) -> str: #PAULIINA LISÄYS
-    context = ""
+        if intent in ["restaurants", "both"]:
+            restaurants = fetch_restaurants()
 
-    if intent in ["restaurants", "both"]:
-        restaurants = fetch_restaurants()
         context += "RESTAURANTS:\n"
+
         for r in restaurants:
             context += f"- {r['name']} (rating {r['rating']}) at {r['address']}\n"
 
-    if intent in ["events", "both"]:
-        events = fetch_events()
+        if intent in ["events", "both"]:
+            events = fetch_events()
         context += "\nEVENTS:\n"
         for e in events:
             context += f"- {e['name']} on {e['date']} at {e['location']}\n"
 
-    return context
+        return context
+        
+
+    
+
+
 
 
     # def process_message(self, user_message: str) -> AIResponse:
@@ -129,48 +139,48 @@ def build_context(self, intent: str) -> str: #PAULIINA LISÄYS
     #             error_message=str(err),
     #         )
    
-def process_message(self, user_message: str) -> AIResponse: #PAULIINA LISÄYS
-    if not user_message or not user_message.strip():
-        return AIResponse(
+    def process_message(self, user_message: str) -> AIResponse: #PAULIINA LISÄYS
+        if not user_message or not user_message.strip():
+            return AIResponse(
             content="Please enter a message before sending.",
             success=False,
             error_message="User message was empty.",
         )
 
-    try:
-        # 1. Intent-luokittelu
-        intent = self.classify_intent(user_message)
+        try:
+            # 1. Intent-luokittelu
+            intent = self.classify_intent(user_message)
 
-        # 2. API-data
-        context = self.build_context(intent)
+            # 2. API-data
+            context = self.build_context(intent)
 
-        # 3. Lopullinen prompt
-        final_prompt = f"""
-        You are a Helsinki travel assistant.
+            # 3. Lopullinen prompt
+            final_prompt = f"""
+            You are a Helsinki travel assistant.
 
-        USER QUERY:
-        {user_message}
+            USER QUERY:
+            {user_message}
 
-        CONTEXT:
-        {context}
+            CONTEXT:
+            {context}
 
-        INSTRUCTIONS:
-        - Recommend the best plan for the user.
-        - Use only the provided context.
-        - Be concise and helpful.
-        """
+            INSTRUCTIONS:
+            - Recommend the best plan for the user.
+            - Use only the provided context.
+            - Be concise and helpful.
+            """
 
-        # 4. Mallikutsu
-        client = self._get_client()
-        response_text = client.generate(final_prompt)
+            # 4. Mallikutsu
+            client = self._get_client()
+            response_text = client.generate(final_prompt)
 
-        return AIResponse(
-            content=response_text,
-            success=True,
+            return AIResponse(
+                content=response_text,
+                success=True,
         )
 
-    except Exception as err:
-        return AIResponse(
+        except Exception as err:
+            return AIResponse(
             content="[Error] An unexpected application error occurred.",
             success=False,
             error_message=str(err),
