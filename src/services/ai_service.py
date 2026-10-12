@@ -1,11 +1,13 @@
-from email.mime import message
+
+
+# from email.mime import message
 from typing import Optional
-from xmlrpc import client
+# from xmlrpc import client
 
-from matplotlib.style import context
-from prompt_toolkit import prompt
+# from matplotlib.style import context
+# from prompt_toolkit import prompt
 
-from prompt_toolkit import prompt
+# from prompt_toolkit import prompt
 from src.models.model_client import (
     OllamaModelClient,
     ModelClientError,
@@ -60,14 +62,14 @@ class AIService:
         if intent in ["restaurants", "both"]:
             restaurants = fetch_restaurants()
 
-        context += "RESTAURANTS:\n"
+            context += "RESTAURANTS:\n"
 
         for r in restaurants:
             context += f"- {r['name']} (rating {r['rating']}) at {r['address']}\n"
 
         if intent in ["events", "both"]:
             events = fetch_events()
-        context += "\nEVENTS:\n"
+            context += "\nEVENTS:\n"
         for e in events:
             context += f"- {e['name']} on {e['date']} at {e['location']}\n"
 
@@ -179,13 +181,21 @@ class AIService:
                 success=True,
         )
 
-        except Exception as err:
-            return AIResponse(
-            content="[Error] An unexpected application error occurred.",
-            success=False,
-            error_message=str(err),
-        )
+        # except Exception as err:
+        #     return AIResponse(
+        #     content="[Error] An unexpected application error occurred.",
+        #     success=False,
+        #     error_message=str(err),
+        # )
 
+        except Exception as err:
+            print("ERROR:", err)
+
+            return AIResponse(
+                content=f"ERROR: {err}",
+                success=False,
+                error_message=str(err),
+    )
 
 
 
@@ -199,3 +209,13 @@ def generate_response(user_message: str, service: Optional[AIService] = None) ->
     active_service = service or AIService()
     response = active_service.process_message(user_message)
     return response.content
+
+if __name__ == "__main__":
+
+    service = AIService()
+
+    response = service.process_message(
+        "Recommend restaurants and events in Helsinki"
+    )
+
+    print(response.content)
