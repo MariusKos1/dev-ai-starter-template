@@ -9,13 +9,13 @@ def build_ui() -> gr.Blocks:
     Architectural Principle: The UI communicates strictly with `generate_response()`
     in the AI service layer and never directly with Ollama or the model client.
     """
-    with gr.Blocks(title="AI Application Starter") as demo:
+    with gr.Blocks(title="Helsinki Visit Assistant") as demo:
         gr.Markdown(
             """
-            # AI Application Starter
+            # Helsinki Visit Assistant
             
-            Welcome to the AI Application Starter repository.
-            Type a prompt below to interact with your local AI service.
+            Discover restaurants and upcoming events in Helsinki with the help of our AI assistant.
+            Get personalized recommendations and travel plans based on your interests.
             """
         )
 

@@ -64,14 +64,14 @@ class AIService:
 
             context += "RESTAURANTS:\n"
 
-        for r in restaurants:
-            context += f"- {r['name']} (rating {r['rating']}) at {r['address']}\n"
+            for r in restaurants:
+                context += f"- {r['name']} (rating {r['rating']}) at {r['address']}\n"
 
         if intent in ["events", "both"]:
             events = fetch_events()
             context += "\nEVENTS:\n"
-        for e in events:
-            context += f"- {e['name']} on {e['date']} at {e['location']}\n"
+            for e in events:
+                context += f"- {e['name']} on {e['date']} at {e['location']}\n"
 
         return context
         
