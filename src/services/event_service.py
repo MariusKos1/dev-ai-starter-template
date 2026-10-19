@@ -9,7 +9,7 @@ EVENTS_URL = f"{API_BASE}/event/"
 KEYWORDS_URL = f"{API_BASE}/keyword/"
 
 HELSINKI_TZ = ZoneInfo("Europe/Helsinki")
-REQUEST_TIMEOUT = 20
+REQUEST_TIMEOUT = 60
 PAGE_SIZE = 100
 MAX_PAGES = 20
 

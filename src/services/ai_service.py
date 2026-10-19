@@ -5,18 +5,17 @@ from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from urllib.parse import urlparse
 
-from ollama import Client, ResponseError
+from src.services.ollama_client import (
+    ask_ollama,
+    ModelClientError,
+)
 
 from src.services.event_service import (
     get_upcoming_events,
     search_events_by_topic,
 )
 
-MODEL_ID = "qwen3:1.7b"
-OLLAMA_HOST = "http://localhost:11434"
-
 HELSINKI_TZ = ZoneInfo("Europe/Helsinki")
-client = Client(host=OLLAMA_HOST, timeout=300)
 
 SYSTEM_MESSAGE = """
 You are a helpful Helsinki tourist assistant.
@@ -27,7 +26,6 @@ Use only the information provided in the context.
 Never invent event names, dates, links, opening hours, or prices.
 If the provided information is insufficient, say so clearly.
 """
-
 
 TOPIC_LABELS = {
     "music": "Music-related events",
@@ -213,7 +211,10 @@ def format_event_list(events, title):
 
         if isinstance(start_time, datetime):
             if start_time.tzinfo is None:
-                start_time = start_time.replace(tzinfo=HELSINKI_TZ)
+                start_time = start_time.replace(
+                    tzinfo=HELSINKI_TZ
+                )
+
             start_time = start_time.astimezone(HELSINKI_TZ)
             date_text = start_time.strftime("%a %d %b, %H:%M")
         else:
@@ -246,6 +247,7 @@ def generate_response(question):
                     target_date=target_date,
                     days=days,
                 )
+
                 title = (
                     f"{TOPIC_LABELS.get(topic, 'Events')} "
                     f"happening {date_label} in Helsinki"
@@ -256,7 +258,10 @@ def generate_response(question):
                     target_date=target_date,
                     days=days,
                 )
-                title = f"Events happening {date_label} in Helsinki"
+
+                title = (
+                    f"Events happening {date_label} in Helsinki"
+                )
 
             answer = format_event_list(events, title)
 
@@ -264,18 +269,14 @@ def generate_response(question):
                 f"[AI SERVICE] Event response completed in "
                 f"{time.time() - started:.2f}s"
             )
+
             return answer
 
-        # For non-event questions, use the local Ollama model.
-        response = client.chat(
-            model=MODEL_ID,
-            messages=[
-                {"role": "system", "content": SYSTEM_MESSAGE},
-                {"role": "user", "content": question},
-            ],
+        # For non-event questions, use the Ollama client service.
+        answer = ask_ollama(
+            prompt=question,
+            system_message=SYSTEM_MESSAGE,
         )
-
-        answer = response["message"]["content"].strip()
 
         print(
             f"[AI SERVICE] Ollama response completed in "
@@ -284,8 +285,8 @@ def generate_response(question):
 
         return answer
 
-    except ResponseError as error:
-        print(f"[AI SERVICE] Ollama response error: {error}")
+    except ModelClientError as error:
+        print(f"[AI SERVICE] Ollama error: {error}")
         return "I couldn't generate a response. Please try again."
 
     except Exception as error:
