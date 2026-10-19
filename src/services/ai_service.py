@@ -1,440 +1,296 @@
 
-import os
 import re
 import time
-import traceback
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
+from urllib.parse import urlparse
 
 from ollama import Client, ResponseError
-from src.services.event_service import get_upcoming_events
 
-
-print(
-    f"[DEBUG] ai_service.py loaded from: {os.path.abspath(__file__)}",
-    flush=True,
+from src.services.event_service import (
+    get_upcoming_events,
+    search_events_by_topic,
 )
 
 MODEL_ID = "qwen3:1.7b"
 OLLAMA_HOST = "http://localhost:11434"
+
 HELSINKI_TZ = ZoneInfo("Europe/Helsinki")
+client = Client(host=OLLAMA_HOST, timeout=300)
 
-model_client = Client(host=OLLAMA_HOST, timeout=300.0)
+SYSTEM_MESSAGE = """
+You are a helpful Helsinki tourist assistant.
 
-
-SYSTEM_MESSAGE = (
-    "You are a Helsinki tourist assistant. "
-    "Help users discover restaurants, attractions, and events "
-    "in Helsinki. Be friendly, concise, and answer in the "
-    "language used by the user. "
-    "When event data is provided, use it as the source of truth "
-    "for event names, times, and URLs. "
-    "Do not invent event locations, restaurant listings, "
-    "opening hours, prices, or other unverified details. "
-    "If the available information is insufficient, explain this "
-    "clearly. Present event times in Helsinki local time. "
-    "Keep answers concise, using short bullet points when appropriate. "
-    "Finish each bullet point before starting another. "
-    "Do not include lengthy introductions."
-)
+Answer in the same language as the user's question.
+Be concise and friendly.
+Use only the information provided in the context.
+Never invent event names, dates, links, opening hours, or prices.
+If the provided information is insufficient, say so clearly.
+"""
 
 
-def is_event_question(question: str) -> bool:
-    """Check whether the user is asking about events or activities."""
-
-    question_lower = question.lower()
-
-    event_keywords = re.compile(
-        r"\b("
-        r"event|events|concert|concerts|gig|gigs|"
-        r"festival|festivals|exhibition|exhibitions|"
-        r"performance|performances|theatre|theater|"
-        r"play|plays|what's on|happening|"
-        r"tapahtuma|tapahtumat|konsertti|konsertit|"
-        r"näyttely|näyttelyt|esitys|esitykset|"
-        r"evenemang|föreställning|utställning"
-        r")\b"
-    )
-
-    time_keywords = re.compile(
-        r"\b("
-        r"today|tonight|tomorrow|tommorow|this weekend|"
-        r"upcoming|next weekend|"
-        r"tänään|huomenna|viikonloppuna|"
-        r"idag|imorgon|i helgen"
-        r")\b"
-    )
-
-    activity_phrases = (
-        "things to do",
-        "activities in helsinki",
-        "what can i do",
-        "what is happening",
-        "what's happening",
-        "what to do in helsinki",
-    )
-
-    return (
-        bool(event_keywords.search(question_lower))
-        or bool(time_keywords.search(question_lower))
-        or any(
-            phrase in question_lower
-            for phrase in activity_phrases
-        )
-    )
+TOPIC_LABELS = {
+    "music": "Music-related events",
+    "theatre": "Theatre events",
+    "art": "Art and exhibition events",
+    "family": "Family events",
+    "sports": "Sports events",
+    "food": "Food-related events",
+}
 
 
-def is_simple_event_list_question(question: str) -> bool:
-    """
-    Identify event-list requests that can be answered directly
-    from API data without using the language model.
-    """
+def is_event_question(question):
+    """Check whether the user is asking about events."""
+    terms = [
+        "event", "events", "concert", "concerts", "gig", "gigs",
+        "festival", "festivals", "exhibition", "exhibitions",
+        "performance", "performances", "what's on", "happening",
+        "things to do", "activities", "music-related",
+        "tapahtuma", "tapahtumat", "konsertti", "konsertit",
+        "näyttely", "näyttelyt", "keikka", "keikat",
+        "evenemang", "konsert", "utställning",
+    ]
 
-    question_lower = question.lower()
-
-    special_intent = re.compile(
-        r"\b("
-        r"best|recommend|recommendation|recommended|"
-        r"good for|suitable for|"
-        r"kid|kids|child|children|family|families|"
-        r"free|cheap|budget|indoor|outdoor|"
-        r"near me|nearby|closest|"
-        r"compare|difference|explain|"
-        r"why|how|which|where"
-        r")\b"
-    )
-
-    if special_intent.search(question_lower):
-        return False
-
-    listing_intent = re.compile(
-        r"\b("
-        r"list|show|give me|find|"
-        r"upcoming|event|events|concert|concerts|"
-        r"festival|festivals|exhibition|exhibitions|"
-        r"what's on|what is on|what is happening|"
-        r"what's happening|"
-        r"tapahtuma|tapahtumat|konsertti|konsertit|"
-        r"näyttely|näyttelyt"
-        r")\b"
-    )
-
-    return bool(listing_intent.search(question_lower))
+    lowered = question.lower()
+    return any(term in lowered for term in terms)
 
 
-def get_requested_event_count(question: str) -> int:
-    """Extract a requested event count, defaulting to five."""
+def get_event_topic(question):
+    """Identify a supported event topic, if present."""
+    lowered = question.lower()
 
-    patterns = (
-        r"\b(\d+)\s+events?\b",
-        r"\b(\d+)\s+concerts?\b",
-        r"\b(\d+)\s+festivals?\b",
-        r"\b(\d+)\s+exhibitions?\b",
-    )
+    topic_terms = {
+        "music": [
+            "music", "musical", "concert", "concerts",
+            "gig", "gigs", "live music", "musiikki",
+            "konsertti", "konsertit", "keikka", "keikat",
+        ],
+        "theatre": [
+            "theatre", "theater", "play", "plays",
+            "teatteri", "teatteriesitys",
+        ],
+        "art": [
+            "art", "exhibition", "exhibitions",
+            "gallery", "museum", "taide", "näyttely",
+        ],
+        "family": [
+            "family", "families", "children", "kids",
+            "perhe", "lapset",
+        ],
+        "sports": [
+            "sport", "sports", "football", "basketball",
+            "urheilu", "jalkapallo",
+        ],
+        "food": [
+            "food festival", "food event", "food events",
+            "ruokatapahtuma", "ruokatapahtumat",
+        ],
+    }
+
+    for topic, terms in topic_terms.items():
+        if any(term in lowered for term in terms):
+            return topic
+
+    return None
+
+
+def get_requested_event_count(question):
+    """Extract the requested event count, defaulting to 10."""
+    patterns = [
+        r"\b(\d{1,2})\s+(?:events?|concerts?|exhibitions?)\b",
+        r"\b(?:top|first)\s+(\d{1,2})\b",
+    ]
 
     for pattern in patterns:
-        match = re.search(pattern, question.lower())
-
+        match = re.search(pattern, question, re.IGNORECASE)
         if match:
             return max(1, min(int(match.group(1)), 30))
 
-    return 5
+    return 10
 
 
-def format_event_list(
-    events: list[dict],
-    title: str,
-) -> str:
-    """Format event details directly from the API."""
+def get_requested_date(question):
+    """Recognize today and tomorrow in common English and Finnish."""
+    lowered = question.lower()
+    today = datetime.now(HELSINKI_TZ).date()
+
+    today_terms = [
+        "today", "tonight", "tänään", "tanään",
+        "idag", "ikväll",
+    ]
+    tomorrow_terms = [
+        "tomorrow", "tommorow", "huomenna", "imorgon",
+    ]
+
+    if any(term in lowered for term in tomorrow_terms):
+        return today + timedelta(days=1)
+
+    if any(term in lowered for term in today_terms):
+        return today
+
+    return None
+
+
+def get_requested_days(question):
+    """Determine the requested upcoming time window."""
+    lowered = question.lower()
+
+    if any(
+        term in lowered
+        for term in [
+            "next week", "upcoming week", "coming week",
+            "this week", "next 7 days", "next seven days",
+            "ensi viikolla", "tulevalla viikolla",
+            "den kommande veckan",
+        ]
+    ):
+        return 7
+
+    return 7
+
+
+def get_date_label(target_date=None, days=7):
+    """Create a readable date label."""
+    if target_date:
+        today = datetime.now(HELSINKI_TZ).date()
+
+        if target_date == today:
+            return "today"
+
+        if target_date == today + timedelta(days=1):
+            return "tomorrow"
+
+        return target_date.strftime("%A %d %b")
+
+    return f"the next {days} days"
+
+
+def _has_valid_url(event):
+    """Only accept events with absolute HTTP/HTTPS information links."""
+    url = event.get("url")
+
+    if not isinstance(url, str) or not url.strip():
+        return False
+
+    try:
+        parsed = urlparse(url.strip())
+        return (
+            parsed.scheme in ("https", "http")
+            and bool(parsed.netloc)
+        )
+    except ValueError:
+        return False
+
+
+def format_event_list(events, title):
+    """Format only events that have valid clickable links."""
+    events = [
+        event for event in events
+        if _has_valid_url(event)
+    ]
 
     if not events:
         return (
-            f"I couldn't find any matching events for {title} "
-            "in the retrieved event data."
+            f"**{title}**\n\n"
+            "I couldn't find matching events with valid information "
+            "links. Try another date or topic."
         )
 
-    lines = [f"Here are {len(events)} events for {title}:"]
+    lines = [f"**{title}**", ""]
 
     for event in events:
-        name = event.get("name") or "Unnamed event"
-        url = (event.get("url") or "").strip()
-        raw_start_time = event.get("start_time", "")
+        name = event["name"]
+        url = event["url"]
+        start_time = event["start_time"]
 
-        try:
-            start_time = datetime.fromisoformat(
-                raw_start_time.replace("Z", "+00:00")
-            )
-
-            if start_time.tzinfo is None:
-                start_time = start_time.replace(
-                    tzinfo=HELSINKI_TZ
+        if isinstance(start_time, str):
+            try:
+                start_time = datetime.fromisoformat(
+                    start_time.replace("Z", "+00:00")
                 )
+            except ValueError:
+                start_time = None
 
+        if isinstance(start_time, datetime):
+            if start_time.tzinfo is None:
+                start_time = start_time.replace(tzinfo=HELSINKI_TZ)
             start_time = start_time.astimezone(HELSINKI_TZ)
+            date_text = start_time.strftime("%a %d %b, %H:%M")
+        else:
+            date_text = "Time unavailable"
 
-            formatted_time = start_time.strftime(
-                "%a %d %b, %H:%M"
-            )
-
-        except (ValueError, TypeError, AttributeError):
-            formatted_time = "Time unavailable"
-
-        line = f"- **{name}** — {formatted_time}"
-
-        # Only show links provided by the API.
-        if url.startswith(("https://", "http://")):
-            line += f" — [Event details]({url})"
-
-        lines.append(line)
+        lines.append(f"- [{name}]({url}) — {date_text}")
 
     return "\n".join(lines)
 
 
-def filter_events_for_date(
-    events: list[dict],
-    target_date,
-) -> list[dict]:
-    """Keep events whose start date matches the target date."""
-
-    matching_events = []
-
-    for event in events:
-        try:
-            raw_start_time = event["start_time"]
-
-            start_time = datetime.fromisoformat(
-                raw_start_time.replace("Z", "+00:00")
-            )
-
-            if start_time.tzinfo is None:
-                start_time = start_time.replace(
-                    tzinfo=HELSINKI_TZ
-                )
-
-            start_time = start_time.astimezone(HELSINKI_TZ)
-
-            if start_time.date() == target_date:
-                matching_events.append(event)
-
-        except (
-            ValueError,
-            KeyError,
-            TypeError,
-            AttributeError,
-        ):
-            continue
-
-    matching_events.sort(
-        key=lambda event: event.get("start_time", "")
-    )
-
-    return matching_events
-
-
-def generate_response(question: str) -> str:
-    """Generate a response using event data and Ollama as needed."""
-
-    total_start = time.perf_counter()
-    cleaned_question = (question or "").strip()
-
-    if not cleaned_question:
-        return "Please enter a question."
-
-    context = ""
-    stage = "event retrieval"
+def generate_response(question):
+    """Route event questions to the event service and other questions to Ollama."""
+    started = time.time()
 
     try:
-        if is_event_question(cleaned_question):
-            question_lower = cleaned_question.lower()
+        event_question = is_event_question(question)
+        topic = get_event_topic(question)
+        target_date = get_requested_date(question)
+        days = get_requested_days(question)
+        count = get_requested_event_count(question)
 
-            requested_count = get_requested_event_count(
-                cleaned_question
-            )
+        # Handle event-list questions directly instead of calling Ollama.
+        if event_question or topic:
+            date_label = get_date_label(target_date, days)
 
-            simple_list_request = is_simple_event_list_question(
-                cleaned_question
-            )
-
-            asks_for_tomorrow = (
-                "tomorrow" in question_lower
-                or "tommorow" in question_lower
-                or "huomenna" in question_lower
-                or "imorgon" in question_lower
-            )
-
-            asks_for_today = (
-                "today" in question_lower
-                or "tonight" in question_lower
-                or "tänään" in question_lower
-                or "idag" in question_lower
-            )
-
-            # Determine whether the API should search a specific date.
-            today = datetime.now(HELSINKI_TZ).date()
-            target_date = None
-
-            if asks_for_today:
-                target_date = today
-            elif asks_for_tomorrow:
-                target_date = today + timedelta(days=1)
-
-            event_start = time.perf_counter()
-
-            # Request today's or tomorrow's events directly from
-            # the API, rather than filtering a general event list.
-            if target_date is not None:
-                events = get_upcoming_events(
-                    limit=30,
+            if topic:
+                events = search_events_by_topic(
+                    topic=topic,
+                    limit=count,
                     target_date=target_date,
+                    days=days,
+                )
+                title = (
+                    f"{TOPIC_LABELS.get(topic, 'Events')} "
+                    f"happening {date_label} in Helsinki"
                 )
             else:
-                events = get_upcoming_events(limit=30)
+                events = get_upcoming_events(
+                    limit=count,
+                    target_date=target_date,
+                    days=days,
+                )
+                title = f"Events happening {date_label} in Helsinki"
 
-            event_elapsed = time.perf_counter() - event_start
+            answer = format_event_list(events, title)
 
             print(
-                f"[TIMING] Event retrieval: {event_elapsed:.2f}s",
-                flush=True,
+                f"[AI SERVICE] Event response completed in "
+                f"{time.time() - started:.2f}s"
             )
-            print(
-                f"[INFO] Retrieved {len(events)} events.",
-                flush=True,
-            )
+            return answer
 
-            # Answer simple requests directly from API data.
-            if simple_list_request:
-                selected_events = events[:requested_count]
-
-                if target_date is not None:
-                    title = target_date.strftime("%d %B %Y")
-                else:
-                    title = "upcoming events in Helsinki"
-
-                answer = format_event_list(
-                    selected_events,
-                    title,
-                )
-
-                if (
-                    len(selected_events) < requested_count
-                    and selected_events
-                ):
-                    answer += (
-                        f"\n\nI found only {len(selected_events)} "
-                        "matching events in the retrieved data."
-                    )
-
-                total_elapsed = time.perf_counter() - total_start
-
-                print(
-                    "[INFO] Answered directly from event API data.",
-                    flush=True,
-                )
-                print(
-                    f"[TIMING] Total response time: "
-                    f"{total_elapsed:.2f}s",
-                    flush=True,
-                )
-
-                return answer
-
-            # Use the language model for questions requiring
-            # recommendations, explanations, or filtering.
-            if events:
-                context = "Retrieved events:\n" + "\n".join(
-                    f"- {event.get('name', 'Unnamed event')} | "
-                    f"{event.get('start_time', 'Time unavailable')} | "
-                    f"{event.get('url', '')}"
-                    for event in events
-                )
-            else:
-                context = (
-                    "No events were found in the requested search "
-                    "window. Do not invent event listings."
-                )
-
-        # Generate AI answers for questions that need reasoning
-        # and for questions unrelated to event listings.
-        user_message = cleaned_question
-
-        if context:
-            user_message += (
-                "\n\nRetrieved event information:\n"
-                + context
-                + "\n\nUse only the supplied event information. "
-                "Preserve event names, times, and URLs exactly. "
-                "Do not invent additional events or details."
-            )
-
-        stage = "Ollama response generation"
-        ai_start = time.perf_counter()
-
-        print("[DEBUG] Model call reached.", flush=True)
-        print(f"[DEBUG] Model: {MODEL_ID}", flush=True)
-        print(
-            f"[DEBUG] Prompt length: {len(user_message)} characters",
-            flush=True,
-        )
-
-        response = model_client.chat(
+        # For non-event questions, use the local Ollama model.
+        response = client.chat(
             model=MODEL_ID,
             messages=[
-                {
-                    "role": "system",
-                    "content": SYSTEM_MESSAGE,
-                },
-                {
-                    "role": "user",
-                    "content": user_message,
-                },
+                {"role": "system", "content": SYSTEM_MESSAGE},
+                {"role": "user", "content": question},
             ],
-            think=False,
-            options={"num_predict": 512},
-            stream=False,
         )
 
-        ai_elapsed = time.perf_counter() - ai_start
-        total_elapsed = time.perf_counter() - total_start
+        answer = response["message"]["content"].strip()
 
         print(
-            f"[TIMING] Ollama generation: {ai_elapsed:.2f}s",
-            flush=True,
-        )
-        print(
-            f"[TIMING] Total response time: {total_elapsed:.2f}s",
-            flush=True,
+            f"[AI SERVICE] Ollama response completed in "
+            f"{time.time() - started:.2f}s"
         )
 
-        answer = response.message.content
-
-        if not answer or not answer.strip():
-            return (
-                "The AI returned an empty response. "
-                "Please try again."
-            )
-
-        return answer.strip()
+        return answer
 
     except ResponseError as error:
-        print(
-            f"[ERROR] Ollama error during {stage}: {error!r}",
-            flush=True,
-        )
-        traceback.print_exc()
-
-        return (
-            "Ollama could not process your request. "
-            "Check that the model is available and try again."
-        )
+        print(f"[AI SERVICE] Ollama response error: {error}")
+        return "I couldn't generate a response. Please try again."
 
     except Exception as error:
-        print(
-            f"[ERROR] Failure during {stage}: {error!r}",
-            flush=True,
-        )
-        traceback.print_exc()
-
+        print(f"[AI SERVICE] Unexpected error: {error}")
         return (
-            f"An error occurred during {stage}: "
-            f"{type(error).__name__}: {error}"
+            "Something went wrong while retrieving information. "
+            "Please try again."
         )

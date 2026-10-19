@@ -1,186 +1,305 @@
 
 import requests
-from datetime import datetime, date, time, timedelta, timezone
+from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
+from urllib.parse import urlparse
 
-EVENTS_URL = "https://api.hel.fi/linkedevents/v1/event/"
+API_BASE = "https://api.hel.fi/linkedevents/v1"
+EVENTS_URL = f"{API_BASE}/event/"
+KEYWORDS_URL = f"{API_BASE}/keyword/"
+
 HELSINKI_TZ = ZoneInfo("Europe/Helsinki")
+REQUEST_TIMEOUT = 20
+PAGE_SIZE = 100
+MAX_PAGES = 20
+
+TOPIC_KEYWORD_TERMS = {
+    "music": ["musiikki", "konsertti", "music", "concert"],
+    "theatre": ["teatteri", "theatre", "theater"],
+    "art": ["taide", "näyttely", "art exhibition", "exhibition"],
+    "family": ["perhe", "lapset", "family", "children"],
+    "sports": ["urheilu", "sports", "jalkapallo"],
+    "food": ["ruoka", "ruokatapahtuma", "food festival"],
+}
 
 
-def get_upcoming_events(
-    limit: int = 10,
-    target_date: date | str | None = None,
-) -> list[dict]:
-    """
-    Retrieve upcoming Helsinki events from the Linked Events API.
+def _localized_value(value):
+    """Get a readable value from a multilingual API field."""
+    if isinstance(value, str):
+        return value.strip()
 
-    Args:
-        limit: Maximum number of events to return.
-        target_date: Optional Helsinki date, as a date object
-                     or YYYY-MM-DD string.
+    if isinstance(value, dict):
+        for language in ("en", "fi", "sv"):
+            text = value.get(language)
+            if isinstance(text, str) and text.strip():
+                return text.strip()
 
-    Returns:
-        A list of unique event dictionaries.
-    """
-    if limit <= 0:
-        return []
+        for text in value.values():
+            if isinstance(text, str) and text.strip():
+                return text.strip()
 
-    now = datetime.now(HELSINKI_TZ)
+    return ""
 
-    if isinstance(target_date, str):
-        target_date = date.fromisoformat(target_date)
 
-    if target_date is not None:
-        local_start = datetime.combine(
-            target_date,
-            time.min,
-            tzinfo=HELSINKI_TZ,
-        )
-        local_end = local_start + timedelta(days=1)
-    else:
-        local_start = now
-        local_end = now + timedelta(days=3)
-
-    params = {
-        "start": local_start.isoformat(),
-        "end": local_end.isoformat(),
-        "sort": "-start_time",
-        "page_size": 100,
-    }
-
-    found_events = []
-    seen_ids = set()
-    next_url = EVENTS_URL
-    first_request = True
+def _parse_datetime(value):
+    """Parse an API datetime and convert it to Helsinki time."""
+    if not value or not isinstance(value, str):
+        return None
 
     try:
-        while next_url and len(found_events) < limit:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=HELSINKI_TZ)
+
+        return parsed.astimezone(HELSINKI_TZ)
+
+    except (ValueError, TypeError):
+        return None
+
+
+def _get_date_range(target_date=None, days=7):
+    """Return a Helsinki-local datetime range."""
+    if target_date:
+        start = datetime.combine(
+            target_date, datetime.min.time(), tzinfo=HELSINKI_TZ
+        )
+        end = start + timedelta(days=1)
+        return start, end
+
+    start = datetime.now(HELSINKI_TZ)
+    end = start + timedelta(days=days)
+    return start, end
+
+
+def _is_valid_url(url):
+    """Accept only absolute HTTP or HTTPS URLs with a hostname."""
+    if not isinstance(url, str) or not url.strip():
+        return False
+
+    try:
+        parsed = urlparse(url.strip())
+        return (
+            parsed.scheme in ("http", "https")
+            and bool(parsed.netloc)
+        )
+    except ValueError:
+        return False
+
+
+def _event_url(raw_event):
+    """Find a valid event information URL, including offer URLs."""
+    candidates = [
+        raw_event.get("info_url"),
+    ]
+
+    offers = raw_event.get("offers") or []
+    for offer in offers:
+        if isinstance(offer, dict):
+            candidates.append(offer.get("info_url"))
+
+    for candidate in candidates:
+        url = _localized_value(candidate)
+        if _is_valid_url(url):
+            return url
+
+    return ""
+
+
+def _normalize_event(raw_event):
+    """Normalize an event, rejecting records without a valid information URL."""
+    name = _localized_value(raw_event.get("name"))
+    start_time = _parse_datetime(raw_event.get("start_time"))
+    url = _event_url(raw_event)
+
+    # Do not return events without all required fields.
+    if not name or not start_time or not url:
+        return None
+
+    return {
+        "id": raw_event.get("id") or raw_event.get("@id") or name,
+        "name": name,
+        "start_time": start_time,
+        "url": url,
+    }
+
+
+def _fetch_pages(url, params=None):
+    """Fetch API results across multiple pages."""
+    all_results = []
+    next_url = url
+    first_request = True
+
+    for _ in range(MAX_PAGES):
+        try:
             response = requests.get(
                 next_url,
                 params=params if first_request else None,
-                timeout=20,
+                timeout=REQUEST_TIMEOUT,
             )
             response.raise_for_status()
             data = response.json()
 
-            print(
-                "[DEBUG] API URL:",
-                response.url,
-                flush=True,
-            )
-            print(
-                "[DEBUG] API result count:",
-                len(data.get("data", [])),
-                flush=True,
-            )
+        except requests.RequestException as error:
+            print(f"[EVENT API] Request failed: {error}")
+            break
+        except ValueError as error:
+            print(f"[EVENT API] Invalid JSON response: {error}")
+            break
 
-            for item in data.get("data", []):
-                event_id = item.get("id")
+        first_request = False
 
-                # Skip duplicate records.
-                if event_id is not None and event_id in seen_ids:
-                    continue
+        if isinstance(data, list):
+            all_results.extend(data)
+            break
 
-                raw_start = item.get("start_time")
-                if not raw_start:
-                    continue
+        results = data.get("data", [])
+        if not isinstance(results, list):
+            break
 
-                try:
-                    start_time = datetime.fromisoformat(
-                        raw_start.replace("Z", "+00:00")
-                    )
+        all_results.extend(results)
 
-                    if start_time.tzinfo is None:
-                        start_time = start_time.replace(
-                            tzinfo=timezone.utc
-                        )
+        meta = data.get("meta", {})
+        next_url = meta.get("next")
 
-                    start_time = start_time.astimezone(HELSINKI_TZ)
+        if not next_url:
+            break
 
-                except (ValueError, TypeError, AttributeError):
-                    continue
+    print(f"[EVENT API] Raw records retrieved: {len(all_results)}")
+    return all_results
 
-                # Skip malformed years, past events, and events
-                # outside the requested Helsinki date range.
-                if start_time.year < now.year:
-                    continue
 
-                if target_date is not None:
-                    if start_time.date() != target_date:
-                        continue
-                elif not (now <= start_time < local_end):
-                    continue
+def _deduplicate_events(raw_events, start, end, limit=None):
+    """Filter by date, require links, deduplicate, and sort events."""
+    events = []
+    seen = set()
 
-                name_data = item.get("name") or {}
+    for raw_event in raw_events:
+        event = _normalize_event(raw_event)
 
-                if isinstance(name_data, dict):
-                    name = (
-                        name_data.get("en")
-                        or name_data.get("fi")
-                        or name_data.get("sv")
-                        or next(
-                            (
-                                value
-                                for value in name_data.values()
-                                if isinstance(value, str) and value.strip()
-                            ),
-                            "",
-                        )
-                    )
-                else:
-                    name = str(name_data)
+        # This also filters out events without valid links.
+        if event is None:
+            continue
 
-                name = name.strip()
-                if not name or name == "Unnamed event":
-                    continue
+        event_start = event["start_time"]
 
-                # Use only a real URL supplied by the API.
-                url_data = item.get("info_url") or {}
+        if not (start <= event_start < end):
+            continue
 
-                if isinstance(url_data, dict):
-                    url = (
-                        url_data.get("en")
-                        or url_data.get("fi")
-                        or url_data.get("sv")
-                        or ""
-                    )
-                else:
-                    url = str(url_data)
+        unique_key = (str(event["id"]), event_start.isoformat())
 
-                url = url.strip()
+        if unique_key in seen:
+            continue
 
-                if not url.startswith(("https://", "http://")):
-                    url = ""
+        seen.add(unique_key)
+        events.append(event)
 
-                # Mark an ID as seen only after it passes validation.
-                if event_id is not None:
-                    seen_ids.add(event_id)
-
-                found_events.append({
-                    "id": event_id,
-                    "name": name,
-                    "start_time": start_time.isoformat(),
-                    "url": url,
-                })
-
-                if len(found_events) >= limit:
-                    break
-
-            next_url = data.get("meta", {}).get("next")
-            first_request = False
-
-    except requests.RequestException as error:
-        print(
-            f"[ERROR] Linked Events API request failed: {error}",
-            flush=True,
-        )
-        raise
-
-    found_events.sort(key=lambda event: event["start_time"])
+    events.sort(key=lambda event: event["start_time"])
 
     print(
-        f"[INFO] Returning {len(found_events)} unique upcoming events.",
-        flush=True,
+        f"[EVENT API] Events with valid links in date range: "
+        f"{len(events)}"
     )
 
-    return found_events
+    if limit is not None:
+        events = events[:limit]
+
+    return events
+
+
+def get_upcoming_events(limit=10, target_date=None, days=7):
+    """Get upcoming events that have valid information links."""
+    start, end = _get_date_range(target_date, days)
+
+    print(f"[EVENT API] Date range: {start} to {end}")
+
+    params = {
+        "start": start.isoformat(),
+        "end": end.isoformat(),
+        "sort": "start_time",
+        "page_size": PAGE_SIZE,
+    }
+
+    raw_events = _fetch_pages(EVENTS_URL, params)
+
+    return _deduplicate_events(
+        raw_events,
+        start,
+        end,
+        limit=limit,
+    )
+
+
+def find_keyword_ids(search_term):
+    """Find Linked Events keyword IDs matching a search term."""
+    try:
+        response = requests.get(
+            KEYWORDS_URL,
+            params={"text": search_term, "page_size": PAGE_SIZE},
+            timeout=REQUEST_TIMEOUT,
+        )
+        response.raise_for_status()
+        data = response.json()
+
+    except (requests.RequestException, ValueError) as error:
+        print(f"[EVENT API] Keyword search failed: {error}")
+        return []
+
+    records = data.get("data", []) if isinstance(data, dict) else []
+
+    keyword_ids = [
+        str(record["id"])
+        for record in records
+        if isinstance(record, dict) and record.get("id") is not None
+    ]
+
+    print(
+        f"[EVENT API] Keywords for {search_term!r}: "
+        f"{len(keyword_ids)}"
+    )
+
+    return keyword_ids
+
+
+def search_events_by_topic(
+    topic, limit=10, target_date=None, days=7
+):
+    """Find events for a topic, requiring valid information links."""
+    terms = TOPIC_KEYWORD_TERMS.get(topic)
+
+    if not terms:
+        print(f"[EVENT API] Unknown topic: {topic}")
+        return []
+
+    keyword_ids = set()
+
+    for term in terms:
+        keyword_ids.update(find_keyword_ids(term))
+
+    if not keyword_ids:
+        print(f"[EVENT API] No keyword IDs found for {topic}")
+        return []
+
+    start, end = _get_date_range(target_date, days)
+
+    params = {
+        "keyword": ",".join(sorted(keyword_ids)),
+        "start": start.isoformat(),
+        "end": end.isoformat(),
+        "sort": "start_time",
+        "page_size": PAGE_SIZE,
+    }
+
+    print(
+        f"[EVENT API] Searching topic {topic!r}, "
+        f"date range {start} to {end}"
+    )
+
+    raw_events = _fetch_pages(EVENTS_URL, params)
+
+    return _deduplicate_events(
+        raw_events,
+        start,
+        end,
+        limit=limit,
+    )
