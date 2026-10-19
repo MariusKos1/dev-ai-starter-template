@@ -1,50 +1,62 @@
-import gradio as gr
+
+import streamlit as st
+import traceback
+
 from src.services.ai_service import generate_response
 
 
-def build_ui() -> gr.Blocks:
-    """
-    Constructs the Gradio web interface.
-    
-    Architectural Principle: The UI communicates strictly with `generate_response()`
-    in the AI service layer and never directly with Ollama or the model client.
-    """
-    with gr.Blocks(title="Helsinki Visit Assistant") as demo:
-        gr.Markdown(
-            """
-            # Helsinki Visit Assistant
-            
-            Discover restaurants and upcoming events in Helsinki with the help of our AI assistant.
-            Get personalized recommendations and travel plans based on your interests.
-            """
-        )
+# Configure the Streamlit page
+st.set_page_config(
+    page_title="Helsinki AI Tourist Assistant",
+    page_icon="🇫🇮",
+    layout="centered"
+)
 
-        with gr.Row():
-            user_input = gr.Textbox(
-                lines=3,
-                placeholder="Type your message here...",
-                label="User Prompt",
-            )
+st.title("🇫🇮 Helsinki AI Tourist Assistant")
+st.write(
+    "Ask me about restaurants, attractions, "
+    "and events in Helsinki!"
+)
 
-        submit_btn = gr.Button("Send", variant="primary")
 
-        with gr.Row():
-            output_box = gr.Textbox(
-                lines=8,
-                label="AI Response",
-                interactive=False,
-            )
+# Initialize the conversation history
+if "messages" not in st.session_state:
+    st.session_state.messages = []
 
-        # Connect UI actions exclusively to the service layer function
-        submit_btn.click(
-            fn=generate_response,
-            inputs=user_input,
-            outputs=output_box,
-        )
-        user_input.submit(
-            fn=generate_response,
-            inputs=user_input,
-            outputs=output_box,
-        )
 
-    return demo
+# Display previous messages
+for message in st.session_state.messages:
+    with st.chat_message(message["role"]):
+        st.markdown(message["content"])
+
+
+# Accept a new question
+question = st.chat_input(
+    "What would you like to know about Helsinki?"
+)
+
+if question:
+    st.session_state.messages.append({
+        "role": "user",
+        "content": question
+    })
+
+    with st.chat_message("user"):
+        st.markdown(question)
+
+    with st.chat_message("assistant"):
+        with st.spinner("Thinking..."):
+            try:
+                answer = generate_response(question)
+            except Exception as error:
+                traceback.print_exc()
+                answer = (
+                    f"Unexpected error: {type(error).__name__}: {error}"
+                )
+
+        st.markdown(answer)
+
+    st.session_state.messages.append({
+        "role": "assistant",
+        "content": answer
+    })
