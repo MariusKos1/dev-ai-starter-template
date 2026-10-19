@@ -1,13 +1,12 @@
 
 from ollama import Client, ResponseError
 
-
-MODEL_ID = "qwen3:8b"
+MODEL_ID = "qwen3:1.7b"
 OLLAMA_HOST = "http://localhost:11434"
 
-model_client = Client(
+client = Client(
     host=OLLAMA_HOST,
-    timeout=200.0
+    timeout=300,
 )
 
 
@@ -15,53 +14,36 @@ class ModelClientError(Exception):
     """A controlled error from the Ollama client."""
 
 
-def ask_ollama(prompt: str) -> str:
-    """Check the model and generate a chat response."""
-
+def ask_ollama(prompt: str, system_message: str) -> str:
+    """Generate a response using the local Ollama model."""
     try:
-        installed_models = {
-            item.model
-            for item in model_client.list().models
-        }
-
-        if MODEL_ID not in installed_models:
-            raise ModelClientError(
-                f"Model {MODEL_ID!r} is not installed. "
-                f"Run: ollama pull {MODEL_ID}"
-            )
-
-        response = model_client.chat(
+        response = client.chat(
             model=MODEL_ID,
             messages=[
-                {
-                    "role": "user",
-                    "content": prompt
-                }
+                {"role": "system", "content": system_message},
+                {"role": "user", "content": prompt},
             ],
-            think=False
         )
 
-        answer = response.message.content
+        answer = response["message"]["content"].strip()
 
-        if not answer or not answer.strip():
+        if not answer:
             raise ModelClientError(
                 "The AI model returned an empty response."
             )
 
-        return answer.strip()
+        return answer
 
     except ModelClientError:
         raise
 
-    except ResponseError as exc:
+    except ResponseError as error:
         raise ModelClientError(
-            f"Ollama could not generate a response: {exc.error}"
-        ) from exc
+            f"Ollama response error: {error}"
+        ) from error
 
-    except Exception as exc:
-        # Covers connection errors, timeouts, and other
-        # unexpected errors from the client library.
+    except Exception as error:
         raise ModelClientError(
             "Could not communicate with Ollama. "
             "Check that Ollama is running and try again."
-        ) from exc
+        ) from error
