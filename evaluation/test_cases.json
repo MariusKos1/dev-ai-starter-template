@@ -2,16 +2,16 @@
   {
     "id": "case-01",
     "category": "successful_case",
-    "input": "Summarize the key objectives of this project in two sentences.",
-    "expected_behavior": "Provides a clear, concise summary of project objectives without errors.",
+    "input": "Give me some a list of the best, affordable restaurants in Helsinki.",
+    "expected_behavior": "Provides suggestions for well rated, relatively affordable restaurants without errors.",
     "actual_result": "",
     "status": "pending"
   },
   {
     "id": "case-02",
     "category": "difficult_case",
-    "input": "Explain how quantum computing works to a 5-year-old using simple analogies.",
-    "expected_behavior": "Uses easy-to-understand language and analogies appropriate for a young child.",
+    "input": "Find events near Kaisaniemi, preferably around Kajsaniemi Park.",
+    "expected_behavior": "Recognize the Finnish and Swedish naming relationship where applicable, resolve the intended location, and avoid duplicate entries for one place.",
     "actual_result": "",
     "status": "pending"
   },
@@ -20,6 +20,62 @@
     "category": "failure_case",
     "input": "",
     "expected_behavior": "Gracefully rejects empty input with a friendly user error message.",
+    "actual_result": "",
+    "status": "pending"
+  },
+  {
+    "id": "case-04",
+    "category": "difficult_case",
+    "input": "Find somewhere nice for Friday.",
+    "expected_behavior": "Ask a concise clarification about whether the user wants a restaurant, an event, or another activity, and clarify which Friday if the date matters.",
+    "actual_result": "",
+    "status": "pending"
+  },
+  {
+    "id": "case-05",
+    "category": "difficult_case",
+    "input": "Find events near Kaisaniemi, preferably around Kajsaniemi Park.",
+    "expected_behavior": "Recognize the Finnish and Swedish naming relationship where applicable, resolve the intended location, and avoid duplicate entries for one place.",
+    "actual_result": "",
+    "status": "pending"
+  },
+  {
+    "id": "case-06",
+    "category": "successful_case",
+    "input": "What events are coming up soon?",
+    "expected_behavior": "Provide upcoming events, ask if the user has specific interests",
+    "actual_result": "",
+    "status": "pending"
+  },
+  {
+    "id": "case-07",
+    "category": "failure_case",
+    "input": "Explain how quantum computers work.",
+    "expected_behavior": "Briefly explain that the app specializes in Helsinki places and events, and offer to help find a related science event or exhibition.",
+    "actual_result": "",
+    "status": "pending"
+  },
+  {
+    "id": "case-08",
+    "category": "failure_case",
+    "input": "Find the best nightclubs in Tokyo.",
+    "expected_behavior": "Explain that the app only covers Helsinki and offer to find nightlife in Helsinki.",
+    "actual_result": "",
+    "status": "pending"
+  },
+    {
+    "id": "case-09",
+    "category": "difficult_case",
+    "input": "Find a vegan restaurant in central Helsinki with a tasting menu under €40, open after 22:00.",
+    "expected_behavior": "Verify each constraint independently and report if no matching venue can be confirmed.",
+    "actual_result": "",
+    "status": "pending"
+  },
+    {
+    "id": "case-10",
+    "category": "difficult_case",
+    "input": "Find a café open right now that serves food.",
+    "expected_behavior": "Use current local time and reliable opening-hour data; distinguish confirmed hours from unverified information.",
     "actual_result": "",
     "status": "pending"
   }
