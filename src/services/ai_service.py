@@ -4,6 +4,7 @@ import time
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from urllib.parse import urlparse
+from src.services.restaurant_service import search_restaurants
 
 from src.services.ollama_client import (
     ask_ollama,
@@ -271,6 +272,42 @@ def generate_response(question):
             )
 
             return answer
+
+        
+        # Handle restaurant questions using the Geoapify API.
+        restaurant_keywords = [
+            "restaurant", "restaurants",
+            "restaurante", "restaurantes",
+            "ravintola", "ravintolat",
+            "where to eat", "places to eat",
+        ]
+
+        if any(word in question.lower() for word in restaurant_keywords):
+            restaurants = search_restaurants(limit=10)
+
+            if not restaurants:
+                return "No restaurants were found in Helsinki."
+
+            lines = ["### Restaurants in Helsinki\n"]
+
+            for restaurant in restaurants:
+                name = restaurant["name"]
+                address = restaurant["address"]
+                website = restaurant.get("website", "")
+
+                if website:
+                    lines.append(f"- **[{name}]({website})** — {address}")
+                else:
+                    lines.append(f"- **{name}** — {address}")
+
+            print(
+                f"[AI SERVICE] Restaurant response completed in "
+                f"{time.time() - started:.2f}s"
+            )
+
+            return "\n".join(lines)
+
+
 
         # For non-event questions, use the Ollama client service.
         answer = ask_ollama(
