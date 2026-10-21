@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from urllib.parse import urlparse
 from src.services.restaurant_service import search_restaurants
+from src.services.attraction_service import search_attractions
 
 from src.services.ollama_client import (
     ask_ollama,
@@ -307,6 +308,44 @@ def generate_response(question):
 
             return "\n".join(lines)
 
+
+        # Handle attraction questions using Geoapify.
+        attraction_keywords = [
+            "attraction", "attractions",
+            "sightseeing", "sights",
+            "tourist places", "places to visit",
+            "atracciones", "lugares turísticos",
+            "nähtävyys", "nähtävyydet",
+        ]
+
+        if any(word in question.lower() for word in attraction_keywords):
+            attractions = search_attractions(limit=10)
+
+            if not attractions:
+                return "No attractions were found in Helsinki."
+
+            lines = ["### Attractions in Helsinki\n"]
+
+            for attraction in attractions:
+                name = attraction["name"]
+                address = attraction["address"]
+                website = attraction.get("website", "")
+
+                if website:
+                    lines.append(
+                        f"- **[{name}]({website})** — {address}"
+                    )
+                else:
+                    lines.append(
+                        f"- **{name}** — {address}"
+                    )
+
+            print(
+                f"[AI SERVICE] Attraction response completed "
+                f"in {time.time() - started:.2f}s"
+            )
+
+            return "\n".join(lines)
 
 
         # For non-event questions, use the Ollama client service.
