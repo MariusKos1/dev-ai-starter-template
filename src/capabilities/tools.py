@@ -54,7 +54,6 @@ Tools should be deterministic, safe, and scoped to the user problem.
 
 ### Custom API Tools
 
-Custom API Tools
 The application implements custom Python functions in src/services/event_service.py to retrieve event information from the Helsinki Linked Events API.
 1. get_upcoming_events
 Purpose: Retrieves upcoming events in Helsinki within a specified date range.
