@@ -5,6 +5,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# print("GEOAPIFY_API_KEY=:", os.getenv("GEOAPIFY_API_KEY"))
+
 GEOAPIFY_URL = "https://api.geoapify.com/v2/places"
 
 
@@ -57,3 +59,4 @@ def search_restaurants(cuisine="", limit=10):
         })
 
     return restaurants
+

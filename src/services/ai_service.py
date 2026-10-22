@@ -1,11 +1,9 @@
-
 import re
+import requests
 import time
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from urllib.parse import urlparse
-from src.services.restaurant_service import search_restaurants
-from src.services.attraction_service import search_attractions
 
 from src.services.ollama_client import (
     ask_ollama,
@@ -15,6 +13,10 @@ from src.services.ollama_client import (
 from src.services.event_service import (
     get_upcoming_events,
     search_events_by_topic,
+)
+
+from src.services.restaurant_service import (
+    search_restaurants,
 )
 
 HELSINKI_TZ = ZoneInfo("Europe/Helsinki")
@@ -50,6 +52,7 @@ def is_event_question(question):
         "näyttely", "näyttelyt", "keikka", "keikat",
         "evenemang", "konsert", "utställning",
     ]
+
 
     lowered = question.lower()
     return any(term in lowered for term in terms)
@@ -107,6 +110,75 @@ def get_requested_event_count(question):
             return max(1, min(int(match.group(1)), 30))
 
     return 10
+
+def is_restaurant_question(question):
+    """Check whether the user is asking about restaurants."""
+
+    terms = [
+        "restaurant", "restaurants",
+        "cafe", "cafes",
+        "eat", "food",
+        "pizza", "sushi", "burger",
+        "ravintola", "ravintolat",
+        "kahvila", "kahvilat",
+        "syödä", "ruoka",
+        "restaurang", "restauranger",
+    ]
+
+    lowered = question.lower()
+
+    return any(term in lowered for term in terms)
+
+def get_restaurant_topic(question):
+
+    lowered = question.lower()
+
+    topic_terms = {
+        "italian": [
+            "italian",
+            "pizza",
+            "pasta",
+            "italialainen",
+        ],
+
+        "japanese": [
+            "japanese",
+            "sushi",
+            "japanilainen",
+        ],
+
+        "indian": [
+            "indian",
+            "intialainen",
+        ],
+
+        "burger": [
+            "burger",
+            "hamburger",
+            "hampurilainen",
+        ],
+
+        "finnish": [
+            "finnish",
+            "suomalainen",
+            "local food",
+        ],
+
+        "vegetarian": [
+            "vegetarian",
+            "vegan",
+            "kasvis",
+            "vegaaninen",
+        ],
+    }
+
+    for topic, terms in topic_terms.items():
+        if any(term in lowered for term in terms):
+            return topic
+
+    return None
+
+
 
 
 def get_requested_date(question):
@@ -234,6 +306,10 @@ def generate_response(question):
     try:
         event_question = is_event_question(question)
         topic = get_event_topic(question)
+
+        restaurant_question = is_restaurant_question(question)
+        restaurant_topic = get_restaurant_topic(question)
+
         target_date = get_requested_date(question)
         days = get_requested_days(question)
         count = get_requested_event_count(question)
@@ -274,79 +350,42 @@ def generate_response(question):
 
             return answer
 
-        
-        # Handle restaurant questions using the Geoapify API.
-        restaurant_keywords = [
-            "restaurant", "restaurants",
-            "restaurante", "restaurantes",
-            "ravintola", "ravintolat",
-            "where to eat", "places to eat",
-        ]
+        if restaurant_question or restaurant_topic:
 
-        if any(word in question.lower() for word in restaurant_keywords):
-            restaurants = search_restaurants(limit=10)
+            cuisine = restaurant_topic or ""
+
+            restaurants = search_restaurants(
+                cuisine=cuisine,
+                limit=count,
+            )
 
             if not restaurants:
-                return "No restaurants were found in Helsinki."
+                return "No restaurants found."
 
-            lines = ["### Restaurants in Helsinki\n"]
+            lines = ["### Restaurants in Helsinki", ""]
 
             for restaurant in restaurants:
-                name = restaurant["name"]
-                address = restaurant["address"]
-                website = restaurant.get("website", "")
 
-                if website:
-                    lines.append(f"- **[{name}]({website})** — {address}")
-                else:
-                    lines.append(f"- **{name}** — {address}")
+                name = restaurant.get(
+                    "name",
+                    "Unknown"
+                )
 
-            print(
-                f"[AI SERVICE] Restaurant response completed in "
-                f"{time.time() - started:.2f}s"
-            )
+                address = restaurant.get(
+                    "address",
+                    "Address unavailable"
+                )
 
-            return "\n".join(lines)
+                cuisine_name = restaurant.get(
+                    "cuisine",
+                    ""
+                )
 
-
-        # Handle attraction questions using Geoapify.
-        attraction_keywords = [
-            "attraction", "attractions",
-            "sightseeing", "sights",
-            "tourist places", "places to visit",
-            "atracciones", "lugares turísticos",
-            "nähtävyys", "nähtävyydet",
-        ]
-
-        if any(word in question.lower() for word in attraction_keywords):
-            attractions = search_attractions(limit=10)
-
-            if not attractions:
-                return "No attractions were found in Helsinki."
-
-            lines = ["### Attractions in Helsinki\n"]
-
-            for attraction in attractions:
-                name = attraction["name"]
-                address = attraction["address"]
-                website = attraction.get("website", "")
-
-                if website:
-                    lines.append(
-                        f"- **[{name}]({website})** — {address}"
-                    )
-                else:
-                    lines.append(
-                        f"- **{name}** — {address}"
-                    )
-
-            print(
-                f"[AI SERVICE] Attraction response completed "
-                f"in {time.time() - started:.2f}s"
-            )
+                lines.append(
+                    f"- {name} ({cuisine_name}) - {address}"
+)
 
             return "\n".join(lines)
-
 
         # For non-event questions, use the Ollama client service.
         answer = ask_ollama(
