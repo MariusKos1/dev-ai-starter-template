@@ -9,22 +9,25 @@ The starter application follows a clean layered separation of concerns:
 ```text
 User
   ↓
-Gradio UI (app/ui.py)
+Streamlit UI (app/ui.py)
   ↓
 Application / AI Service (src/services/ai_service.py)
   ↓
-Model Client (src/models/model_client.py)
+Model Client (src/models/ollama_client.py)
   ↓
 Ollama (Local Inference Server)
   ↓
-Local Model (e.g., llama3.2)
+Event_service.py with Helsinki linked events API
+  ↓
+Restaurant_service.py with geoapify API
+  ↓
+Local Model (e.g., llama3.2, qwen3:1.7b)
 ```
 
 ### Core Design Rules
 
-1. **Strict UI Isolation:** The Gradio user interface (`app/ui.py`) MUST NOT directly instantiate `OllamaModelClient` or make direct API calls to Ollama. It delegates all operations to `generate_response()` in `src/services/ai_service.py`.
+1. **Strict UI Isolation:** The Streamlit user interface (`app/ui.py`) MUST NOT directly instantiate `OllamaModelClient` or make direct API calls to Ollama. It delegates all operations to `generate_response()` in `src/services/ai_service.py`.
 2. **Controlled Failure Handling:** The model client handles low-level runtime exceptions (e.g., connection errors or missing models). The service layer converts technical exceptions into structured, user-understandable responses.
-3. **Data Schemas:** Request inputs and response structures are validated using Pydantic models in `src/schemas/responses.py`.
 
 ---
 

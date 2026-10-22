@@ -12,18 +12,21 @@ Use this decision log to document significant technical and architectural choice
 
 ---
 
+
 ## Decision 2 — Additional AI capability
 
-**Decision:** 
+**Decision:** Tools & External APIs. The event_service.py calls the Helsinki Linked Events API and Geoapify API and the application selects and calls the event service or recommends a restaurant/place based on the user's question. 
+For agent work flow there is basic routing. ai_service.py classifies questions using keywords and routes them to the event or restaurant/places API. There is however no dynamic multi-step reasoning workflow.
+As for memory state it is only implemented partially. The Streamlit UI stores messages in st.session_state["messages"] so it perserves conversation messages during the current session, but the AI service does not automatically send the conversation history to Ollama so there is no memory across sessions.
 
-**Why it is needed:**
+**Why it is needed:** These implementations were needed for a working application that we set out to do. The course also required to add at least one additional AI capability.
 
-**Alternatives considered:**
+**Alternatives considered:** We considered adding RAG but came to decision to not add it in the end.
 
 ---
 
 ## Decision 3 — Architecture
 
-**Decision:**
+**Decision:** Using the Helsinki linked events API and geoapify API.
 
-**Why:**
+**Why:** These API's can be used free of charge and work with the goal of the application in mind. The idea was that the two API's can give up to date information for the user which they do.
