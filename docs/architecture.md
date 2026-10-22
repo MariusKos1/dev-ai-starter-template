@@ -13,11 +13,15 @@ Streamlit UI (app/ui.py)
   ↓
 Application / AI Service (src/services/ai_service.py)
   ↓
-Model Client (src/models/model_client.py)
+Model Client (src/models/ollama_client.py)
   ↓
 Ollama (Local Inference Server)
   ↓
-Local Model (e.g., llama3.2 qwen3:1.7b)
+Event_service.py with Helsinki linked events API
+  ↓
+Restaurant_service.py with geoapify API
+  ↓
+Local Model (e.g., llama3.2, qwen3:1.7b)
 ```
 
 ### Core Design Rules
