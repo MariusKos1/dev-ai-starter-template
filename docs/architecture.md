@@ -23,6 +23,7 @@ Restaurant_service.py with geoapify API
   ↓
 Local Model (e.g., llama3.2, qwen3:1.7b)
 ```
+<img width="446" height="329" alt="image" src="https://github.com/user-attachments/assets/dd9d5304-2cf7-4af5-b16b-1a0bf3ecac72" />
 
 ### Core Design Rules
 
