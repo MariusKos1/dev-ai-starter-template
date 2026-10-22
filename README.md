@@ -10,7 +10,7 @@ Starter template for the **Development of AI Applications** course final group p
 - Vibecky Leinonen (amk1005954@student.hamk.fi)
 
 ## Problem
-Tourists can feel overwhelmed by the amount of places to visit in helsinki. With limited time they most likely want the best experience and the idea of this app is that it recommends places based on user reviews and it can recommend upcoming events. 
+Tourists can feel overwhelmed by the amount of places to visit in helsinki. With limited time they most likely want the best experience and the idea of this app is that it recommends places and it can recommend upcoming events. 
 
 ### Intended users
 The intended users are tourists or even people that live in a another part of Finland and want to visit Helsinki.
