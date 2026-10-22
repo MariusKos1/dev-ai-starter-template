@@ -15,7 +15,7 @@ Use this decision log to document significant technical and architectural choice
 
 ## Decision 2 — Additional AI capability
 
-**Decision:** Tools & External APIs. The event_service.py calls the Helsinki Linked Events API and Geoapify API. The application selects and calls the event service or recommends a restaurant/place based on the user's question. 
+**Decision:** Tools & External APIs. The event_service.py calls the Helsinki Linked Events API and Geoapify API and the application selects and calls the event service or recommends a restaurant/place based on the user's question. 
 For agent work flow there is basic routing. ai_service.py classifies questions using keywords and routes them to the event or restaurant/places API. There is however no dynamic multi-step reasoning workflow.
 As for memory state it is only implemented partially. The Streamlit UI stores messages in st.session_state["messages"] so it perserves conversation messages during the current session, but the AI service does not automatically send the conversation history to Ollama so there is no memory across sessions.
 
