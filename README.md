@@ -31,11 +31,15 @@ As stated above, the application will use API's that have information on places 
 
 ## Main user workflow
 
-1. **User Input:** The user submits a prompt or query via the Streamlit user interface.
-2. **Processing:** The ai_service.py looks at the query and sends a quick prompt to qwen3:8b and asks it to classify the intent into: restaurants, events, or both.
-3. **Data retrieval:** The service layer performs an HTTP GET requests. For restaurants it fetches from the Google Places/MyHelsinki API and ideally it filters out places with low user review scores for example minrating=4.5. For events it fetches upcoming events from the Linked Events API and ideally it filters to out everything that is below the current date and also everything that is more than 3 days away. The Python script should fetch a raw json payload from the Linked Events API and also only extract the information that the model needs.
-4. **Promt handling:** After processing the json's the application will turn it into a context block. Instructions will be added to the model so it behaves correctly. 
-5. **Model Response:** The model client calls Ollama locally and returns the response back through the service layer to the UI.
+1. **User Input:** The user submits a question through the Streamlit user interface. The UI maintains the conversation history in `st.session_state["messages"]` and passes the latest question to `generate_response()` in `src/services/ai_service.py`.
+
+2. **Processing and Routing:** The `ai_service.py` module examines the question using predefined Python logic to determine whether it concerns events and, if applicable, identify a relevant topic, requested date, and number of events.
+
+3. **Data Retrieval:** For event-related questions, the service layer calls functions in `src/services/event_service.py`, which sends HTTP GET requests to the Helsinki Linked Events API. The application retrieves event data within the requested date range, filters out invalid records and events outside that range, removes duplicates, and excludes events without valid information URLs. Topic-based searches use the API's keyword endpoint to identify relevant events. The application does not currently integrate the Google Places or MyHelsinki APIs for restaurant retrieval.
+
+4. **Response Preparation:** For event-related questions, the application formats the retrieved event information into a readable list containing event names, start times, and links. For other questions, the application passes the user's question and system instructions to the language model. The system instructions specify that responses should be concise, friendly, in the user's language, and based only on the provided context. Event results are currently formatted by the Python service rather than being converted into a context block for the model to interpret.
+
+5. **Model Response and Output:** For questions handled by the language model, `ollama_client.py` communicates with the locally running Ollama model, `qwen3:1.7b`, and returns the generated response to `ai_service.py`. The service then returns the answer to the Streamlit UI, which displays it to the user. Event-related questions are handled by the event service and formatted into a response that is displayed directly in the UI.
 
 ## Architecture
 
@@ -57,7 +61,7 @@ Ollama (Local LLM Server)
 
 ## Model
 
-- **Model used:** e.g., `qwen3:8b` (or specified local Ollama model)
+- **Model used:** e.g., `qwen3:1.7b` (or specified local Ollama model)
 - **Selection rationale:** Why was this specific model chosen for your project (e.g., lightweight, performance, context size)? The model was chosen because it is lightweight so it can run easier than heavier models and it should perform well enough for the project.
 
 ## Additional AI capability
