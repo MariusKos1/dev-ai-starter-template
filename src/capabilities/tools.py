@@ -61,7 +61,7 @@ Inputs:
 - limit (integer): Maximum number of events returned.
 - target_date (date or None): Optional target date.
 - days (integer): Number of days to search when no target date is specified.
-Output: A list of normalized event dictionaries containing the event ID, name, start time, and information URL.
+Output: A list of event dictionaries containing the event ID, name, start time, and information URL.
 2. search_events_by_topic
 Purpose: Retrieves events associated with a supported topic, such as music, theatre, art, family activities, sports, or food.
 Inputs:
