@@ -20,7 +20,7 @@ Key concepts when implementing memory:
 Note:
 -----
 Keep memory implementations simple and relevant to the user's workflow needs.
-"""
+
 
 # Implement custom conversation memory or state management below if selected.
 
@@ -28,3 +28,4 @@ The application uses Streamlit's session state to maintain short-term conversati
 This allows previous messages to remain visible as the user interacts with the application.
 Currently, the conversation history is used to display previous messages in the user interface. Only the latest user question is passed to the language model, so previous messages are not yet included as context when generating responses.
 The application does not implement long-term memory or persistent storage of conversations. The conversation state is temporary and is not intended to retain user preferences or conversation history between separate sessions.
+"""
