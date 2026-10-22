@@ -1,9 +1,8 @@
-from app.ui import build_ui
-
-def main() -> None:
-    """Entry point script for launching the application."""
-    demo = build_ui()
-    demo.launch()
+"""Entry point for the Helsinki AI Tourist Assistant."""
 
 if __name__ == "__main__":
-    main()
+    import streamlit.web.cli as stcli
+    import sys
+
+    sys.argv = ["streamlit", "run", "app/ui.py"]
+    stcli.main()
