@@ -73,7 +73,7 @@ Select at least one additional capability to implement for your final project:
 - [x ] Other: Paritally/ not fully implemented were memory state and agent workflow______________________
 
 ### Capability justification
-Pulling live and verified data directly from the MyHelsinki Open API and the Helsinki Linked Events API makes it so that the user can get up to date information about places and events. The RAG pipeline acts as a data filter that provides the local LLM with current information (For example only pulling restaurants with a minrating=4.5 that are verified as open_now). This turns the AI from a normal text generator into an application that works with up to date information.
+Pulling live and verified data directly from the MyHelsinki Open API and the Helsinki Linked Events API makes it so that the user can get up to date information about places and events. 
 
 
 ## Setup
@@ -126,7 +126,7 @@ Run the application from the root directory of the project:
 python -m app.main
 ```
 
-Then open your browser at `http://localhost:7860`.
+Then open your browser at `[http://localhost:11434]`.
 
 ### 6. Run automated tests
 
