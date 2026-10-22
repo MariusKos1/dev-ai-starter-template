@@ -48,7 +48,7 @@ Streamlit UI (app/ui.py)
   ↓
 Application / AI Service (src/services/ai_service.py)
   ↓
-Model Client (src/models/model_client.py)
+Model Client (src/models/ollama_client.py)
   ↓
 Ollama (Local LLM Server)
 ```
