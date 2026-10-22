@@ -27,6 +27,6 @@ As for memory state it is only implemented partially. The Streamlit UI stores me
 
 ## Decision 3 — Architecture
 
-**Decision:**
+**Decision:** Using the Helsinki linked events API and geoapify API.
 
-**Why:**
+**Why:** These API's can be used free of charge and work with the goal of the application in mind. The idea was that the two API's can give up to date information for the user which they do.
