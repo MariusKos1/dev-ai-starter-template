@@ -77,7 +77,7 @@ Select at least one additional capability to implement for your final project:
 - [x ] Other: Paritally/ not fully implemented were memory state and agent workflow______________________
 
 ### Capability justification
-Pulling live and verified data directly from the MyHelsinki Open API and the Helsinki Linked Events API makes it so that the user can get up to date information about places and events. 
+Pulling live and verified data directly from the Helsinki Linked Events API makes it so that the user can get up to date information about places and events. 
 
 
 ## Setup
