@@ -7,9 +7,9 @@ Document your team's evaluation results below.
 - **Date of Evaluation:** 2026-10-22
 - **Model Evaluated:** (e.g., `qwen3:1.7b`)
 - **Total Test Cases Executed:** 19
-- **Passed:** 0
-- **Failed:** 0
-- **Pass Rate:** 0%
+- **Passed:** 11
+- **Failed:** 8
+- **Pass Rate:** 58%
 
 ## Performance by Category
 
