@@ -1,4 +1,4 @@
-# run_evals_judge.py
+# PYTHONPATH=. python3 evaluation/evaluate.py
 import json
 import re
 import time
