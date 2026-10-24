@@ -23,7 +23,7 @@ There are a lot of available events, restaurants, landmarks. The idea is that th
 ### Why AI is appropriate
 Why does this problem require AI / LLM capabilities rather than traditional deterministic software?
 
-Some deterministic software may be outdated due to places closing or it may recommend events that have already passed. This application use API's regarding places and upcoming events, so it should always give updated information. 
+Some deterministic software may be outdated due to places closing or it may recommend events that have already passed. This application uses API's regarding places and upcoming events, so it should always give updated information. 
 
 ## Solution
 
