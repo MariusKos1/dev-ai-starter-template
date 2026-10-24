@@ -2,6 +2,8 @@
 
 Starter template for the **Development of AI Applications** course final group project.
 
+Link to the video of the application: https://www.youtube.com/watch?v=uChXM7iUip0
+
 ## Team members
 
 - Marius Koskinen (marius.koskinen@student.hamk.fi)
