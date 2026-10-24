@@ -140,9 +140,13 @@ pytest
 
 ## Evaluation
 
-Describe your evaluation methodology and summarize key results. Starter test cases can be found in [`evaluation/test_cases.json`](evaluation/test_cases.json).
+### Methology
 
-Refer to [`evaluation/README.md`](evaluation/README.md) for guidelines on defining success, edge cases, and failure scenarios.
+Several test cases were composed, where it has a give input and how it would be expected to answer, and written down in a file, each test was automatically run through each iteration of the system, and manually graded based on how the result matched expected behavior.
+
+### Key results
+
+The system generally worked when used as intended, but would have difficulties handling out of scope and adversarial inputs.
 
 ## Known limitations
 
