@@ -117,4 +117,101 @@ Example response:
  The AI service detects restaurant-related questions, performs the necessary API requests, 
  and returns restaurant recommendations based on restaurant name, address, and cuisine type. 
  This functionality extends the Helsinki Visit Assistant from event recommendations to restaurant 
- recommendations within the same application."""
+ recommendations within the same application.
+ 
+ """
+ """
+Attraction Search Tool
+
+1. Tool Definition
+
+The purpose of this tool is to retrieve real tourist attraction information in Helsinki using the Geoapify Places API.
+
+The tool is implemented in `src/services/attraction_service.py` using the following function:
+
+`search_attractions(limit=10)`
+
+Parameters:
+
+- `limit`: Maximum number of attractions to return. The default is 10, and the maximum allowed by the function is 20.
+
+Returned Data:
+
+The function returns a list of attractions containing the following information:
+
+python
+{
+    "name": "Attraction Name",
+    "address": "Attraction Address",
+    "website": "Website URL",
+    "latitude": 60.17,
+    "longitude": 24.94
+}
+
+2. Tool Selection
+
+The `ai_service.py` file checks the user's question for attraction-related keywords.
+
+Examples of supported questions:
+
+- Find attractions in Helsinki
+- Show me tourist attractions in Helsinki
+
+When an attraction-related question is detected, the AI service calls:
+
+`search_attractions(limit=10)`
+
+This allows the application to retrieve attraction information from Geoapify instead of generating place recommendations using the language model.
+
+3. Execution & Response
+
+Step 1: API Key Loading
+
+The tool loads the Geoapify API key from the `.env` file using the environment variable `GEOAPIFY_API_KEY`.
+
+If the API key is missing, the function raises an error.
+
+Step 2: API Request
+
+The tool sends an HTTP request to the Geoapify Places API using `requests.get()`.
+
+It searches for the categories:
+
+`tourism.attraction,tourism.sights`
+
+The search is restricted to a 5 km radius around central Helsinki.
+
+Step 3: Result Processing
+
+The API response is processed to extract:
+
+- Attraction name
+- Address
+- Website
+- Latitude and longitude
+
+Records without an attraction name are excluded.
+
+Step 4: Response Generation
+
+The processed results are returned to `ai_service.py`, which formats them into a readable list for the user.
+
+The final response is displayed in the Streamlit chat interface.
+
+4. Testing
+
+I tested the attraction search feature through the Streamlit application using the question:
+
+`Find attractions in Helsinki`
+
+The application successfully returned attraction information from Geoapify.
+
+5. Limitations
+
+The search currently covers a fixed 5 km radius around central Helsinki. Results depend on the information available in Geoapify, and some attractions may not have website links.
+
+Summary
+
+The Attraction Search Tool extends the Helsinki AI Tourist Assistant by allowing users to discover real tourist attractions through an external API. This feature was implemented using Python, Geoapify Places API, and the application's existing service architecture.
+
+"""
